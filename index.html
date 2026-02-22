@@ -148,7 +148,6 @@
             </div>
             
             <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                <!-- Toggle Timer Button (Yellow Large) -->
                 <button id="toggle-timer-btn" class="flex-1 sm:flex-none px-6 h-12 rounded-xl btn-yellow text-[10px] sm:text-xs uppercase font-black tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-brandYellow/10">
                     <i data-lucide="timer" class="w-4 h-4"></i>
                     <span id="toggle-timer-text">ОТКРЫТЬ ТАЙМЕР</span>
@@ -167,7 +166,7 @@
         </header>
 
         <main class="max-w-7xl mx-auto px-4">
-            <!-- TIMER SECTION (Hidden by default) -->
+            <!-- TIMER SECTION -->
             <section id="timer-section" class="glass rounded-3xl p-5 sm:p-6 w-full">
                 <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
@@ -314,6 +313,53 @@
         let progressChart = null;
         let workoutToDelete = null;
 
+        // --- AUDIO ENGINE (WEB AUDIO API) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            if (!audioCtx) audioCtx = new AudioContext();
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            if (type === 'work_start') { // Высокий бодрый сигнал
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(440, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } 
+            else if (type === 'rest_start') { // Низкий сигнал (конец работы)
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(220, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+            else if (type === 'finish') { // Финальный аккорд (3 звука)
+                [440, 554.37, 659.25].forEach((freq, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(freq, now + (i * 0.1));
+                    g.gain.setValueAtTime(0.2, now + (i * 0.1));
+                    g.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                    o.start(now + (i * 0.1));
+                    o.stop(now + 0.8);
+                });
+            }
+        }
+
         // --- TIMER LOGIC ---
         let timerState = {
             interval: null,
@@ -368,15 +414,18 @@
                 if (timerState.phase === 'work') {
                     if (timerState.currentRound >= timerState.totalRounds) {
                         stopTimer();
+                        playSound('finish');
                         showToast("Тренировка завершена!", "success");
                         return;
                     }
                     timerState.phase = 'rest';
                     timerState.timeLeft = timerState.restSecs;
+                    playSound('rest_start'); // Звук начала отдыха
                 } else {
                     timerState.currentRound++;
                     timerState.phase = 'work';
                     timerState.timeLeft = timerState.workSecs;
+                    playSound('work_start'); // Звук начала работы
                 }
                 updateTimerUI();
             }
@@ -384,6 +433,9 @@
 
         function startTimer() {
             if (timerState.isRunning) return;
+            // Инициализируем аудио при первом клике пользователя (требование браузеров)
+            if (!audioCtx) audioCtx = new AudioContext();
+
             if (timerState.phase === 'idle') {
                 timerState.workSecs = parseInt(document.getElementById('timer-work').value) || 0;
                 timerState.restSecs = parseInt(document.getElementById('timer-rest').value) || 0;
@@ -392,6 +444,7 @@
                 timerState.currentRound = 1;
                 timerState.phase = 'work';
                 timerState.timeLeft = timerState.workSecs;
+                playSound('work_start'); // Первый старт работы
             }
             timerState.isRunning = true;
             updateTimerUI();
@@ -417,12 +470,7 @@
             const section = document.getElementById('timer-section');
             const textEl = document.getElementById('toggle-timer-text');
             section.classList.toggle('is-visible');
-            
-            if (section.classList.contains('is-visible')) {
-                textEl.textContent = "ЗАКРЫТЬ ТАЙМЕР";
-            } else {
-                textEl.textContent = "ОТКРЫТЬ ТАЙМЕР";
-            }
+            textEl.textContent = section.classList.contains('is-visible') ? "ЗАКРЫТЬ ТАЙМЕР" : "ОТКРЫТЬ ТАЙМЕР";
         }
 
         // --- AUTH LOGIC ---
@@ -435,7 +483,6 @@
             const backBtn = document.getElementById('back-to-login-btn');
             const tabs = document.getElementById('auth-tabs');
             const title = document.getElementById('auth-subtitle');
-
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
             
             if (mode === 'login' || mode === 'register') {
@@ -469,7 +516,6 @@
             const password = document.getElementById('password-input').value;
             const btn = document.getElementById('auth-submit-btn');
             btn.disabled = true;
-
             try {
                 if (authMode === 'login') {
                     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -507,22 +553,15 @@
             const input = document.getElementById('exercise');
             const drop = document.getElementById('exercise-suggestions');
             if(!input || !drop) return;
-            
             input.oninput = () => {
                 const val = input.value.toUpperCase();
                 const uniqueExercises = [...new Set(workouts.map(w => w.exercise))];
                 const matches = uniqueExercises.filter(ex => ex.includes(val));
-                
                 if (val && matches.length) {
-                    drop.innerHTML = matches.slice(0, 5).map(m => `
-                        <div class="suggestion-item text-xs font-bold uppercase">${m}</div>
-                    `).join('');
+                    drop.innerHTML = matches.slice(0, 5).map(m => `<div class="suggestion-item text-xs font-bold uppercase">${m}</div>`).join('');
                     drop.classList.remove('hidden');
-                } else {
-                    drop.classList.add('hidden');
-                }
+                } else drop.classList.add('hidden');
             };
-
             drop.onclick = (e) => {
                 if (e.target.classList.contains('suggestion-item')) {
                     input.value = e.target.textContent;
@@ -566,7 +605,6 @@
             renderChart(filtered, term);
             const container = document.getElementById('history-container');
             if (!filtered.length) { container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 text-xs">ПУСТО</div>`; return; }
-            
             const groups = filtered.reduce((acc, w) => { (acc[w.date] = acc[w.date] || []).push(w); return acc; }, {});
             container.innerHTML = Object.keys(groups).sort().reverse().map(date => `
                 <div class="space-y-3">
@@ -591,14 +629,12 @@
             if (progressChart) progressChart.destroy();
             const labelEl = document.getElementById('current-exercise-label');
             if (!workouts.length) { labelEl.textContent = "НЕТ ДАННЫХ"; return; }
-            
             const allDates = [...new Set(workouts.map(w => w.date))].sort();
             const exerciseGroups = filtered.reduce((acc, w) => {
                 if (!acc[w.exercise]) acc[w.exercise] = {};
                 if (!acc[w.exercise][w.date] || acc[w.exercise][w.date] < w.result) acc[w.exercise][w.date] = w.result;
                 return acc;
             }, {});
-
             const datasets = Object.keys(exerciseGroups).map((ex, i) => ({
                 label: ex,
                 data: allDates.map(d => exerciseGroups[ex][d] || null),
@@ -606,7 +642,6 @@
                 tension: 0.3,
                 spanGaps: true
             }));
-
             labelEl.textContent = term ? `ПРОГРЕСС: ${term}` : "ДИНАМИКА";
             progressChart = new Chart(ctx, {
                 type: 'line',
@@ -631,7 +666,6 @@
 
         function openDeleteModal(id) { workoutToDelete = id; document.getElementById('delete-modal').classList.remove('hidden'); document.getElementById('delete-modal').classList.add('flex'); }
         function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); document.getElementById('delete-modal').classList.remove('flex'); }
-        
         async function confirmDeleteWorkout() {
             const { error } = await supabaseClient.from('workouts').delete().eq('id', workoutToDelete);
             if (!error) { fetchWorkouts(); closeDeleteModal(); showToast("Удалено"); }
@@ -658,44 +692,26 @@
             document.getElementById('login-overlay').classList.remove('hidden');
         }
 
-        // --- GLOBAL INIT ---
         window.addEventListener('load', () => {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            
             flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
-
-            // Auth listener
             supabaseClient.auth.onAuthStateChange((ev, session) => {
-                if (ev === 'SIGNED_OUT') {
-                    showAuth();
-                    return;
-                }
-                if (session?.user) { 
-                    currentUser = session.user; 
-                    showApp(); 
-                } else { 
-                    showAuth();
-                }
+                if (ev === 'SIGNED_OUT') { showAuth(); return; }
+                if (session?.user) { currentUser = session.user; showApp(); } else showAuth();
             });
-
-            // UI Events
             document.getElementById('btn-timer-start').onclick = startTimer;
             document.getElementById('btn-timer-pause').onclick = pauseTimer;
             document.getElementById('btn-timer-stop').onclick = stopTimer;
             document.getElementById('toggle-timer-btn').onclick = toggleTimer;
-            
             document.getElementById('auth-form').onsubmit = handleAuth;
             document.getElementById('workout-form').onsubmit = handleSaveWorkout;
             document.getElementById('confirm-delete-btn').onclick = confirmDeleteWorkout;
             document.getElementById('search-input').oninput = (e) => renderHistory(e.target.value);
-            
-            // Logout logic
             document.getElementById('logout-btn').onclick = async () => {
                 showAuth();
                 await supabaseClient.auth.signOut();
                 window.location.reload();
             };
-
             lucide.createIcons();
         });
     </script>
