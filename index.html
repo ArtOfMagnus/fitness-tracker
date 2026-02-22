@@ -419,15 +419,6 @@
                 submitBtn.textContent = 'Отправить ссылку';
                 backBtn.classList.remove('hidden');
                 title.textContent = "Восстановление";
-            } else if (mode === 'update_password') {
-                tabs.classList.add('hidden');
-                emailInput.classList.add('hidden');
-                passInput.classList.remove('hidden');
-                passInput.placeholder = "Новый пароль";
-                forgotPass.classList.add('hidden');
-                submitBtn.textContent = 'Сохранить пароль';
-                backBtn.classList.add('hidden');
-                title.textContent = "Новый пароль";
             }
         }
 
@@ -454,12 +445,6 @@
                     if (error) throw error;
                     showToast("Ссылка отправлена!");
                     switchAuthTab('login');
-                } else if (authMode === 'update_password') {
-                    const { error } = await supabaseClient.auth.updateUser({ password });
-                    if (error) throw error;
-                    showToast("Пароль изменен!");
-                    window.location.hash = "";
-                    showApp();
                 }
             } catch (err) { showToast(err.message, "error"); }
             btn.disabled = false;
@@ -504,12 +489,6 @@
                     renderHistory(input.value); 
                 }
             };
-
-            document.addEventListener('click', (e) => {
-                if (!input.contains(e.target) && !drop.contains(e.target)) {
-                    drop.classList.add('hidden');
-                }
-            });
         }
 
         async function handleSaveWorkout(e) {
@@ -630,22 +609,31 @@
             fetchWorkouts();
         }
 
+        function showAuth() {
+            currentUser = null;
+            const c = document.getElementById('app-content');
+            c.classList.add('hidden');
+            c.classList.remove('opacity-100');
+            document.getElementById('login-overlay').classList.remove('hidden');
+        }
+
         // --- GLOBAL INIT ---
         window.addEventListener('load', () => {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             
             flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
 
-            // Auth listener
+            // Auth listener with explicit session check
             supabaseClient.auth.onAuthStateChange((ev, session) => {
-                if (ev === 'PASSWORD_RECOVERY') { switchAuthTab('update_password'); return; }
+                if (ev === 'SIGNED_OUT') {
+                    showAuth();
+                    return;
+                }
                 if (session?.user) { 
                     currentUser = session.user; 
                     showApp(); 
                 } else { 
-                    currentUser = null; 
-                    document.getElementById('login-overlay').classList.remove('hidden');
-                    document.getElementById('app-content').classList.add('hidden');
+                    showAuth();
                 }
             });
 
@@ -658,10 +646,20 @@
             document.getElementById('confirm-delete-btn').onclick = confirmDeleteWorkout;
             document.getElementById('search-input').oninput = (e) => renderHistory(e.target.value);
             
-            // Logout logic
+            // Logout logic - FIX: Force immediate UI update then signOut
             document.getElementById('logout-btn').onclick = async () => {
-                await supabaseClient.auth.signOut();
-                location.reload();
+                try {
+                    // 1. Сначала скрываем приложение визуально
+                    showAuth();
+                    // 2. Выходим из Supabase
+                    const { error } = await supabaseClient.auth.signOut();
+                    if (error) throw error;
+                    // 3. Перезагружаем страницу для очистки всех слушателей и кэша
+                    window.location.reload();
+                } catch (e) {
+                    console.error("Logout error", e);
+                    window.location.reload(); // Даже если ошибка, релоад поможет
+                }
             };
 
             lucide.createIcons();
