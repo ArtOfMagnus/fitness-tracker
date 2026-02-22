@@ -128,7 +128,7 @@
                     <span class="block text-[8px] sm:text-[10px] text-brandYellow font-black tracking-widest leading-none uppercase mb-0.5">АТЛЕТ</span>
                     <span id="display-client-id" class="block text-[10px] sm:text-[11px] font-bold text-white max-w-[80px] sm:max-w-[150px] truncate opacity-80 leading-tight"></span>
                 </div>
-                <button id="logout-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 sm:p-2.5 rounded-xl transition-colors" title="Выйти">
+                <button id="logout-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 sm:p-2.5 rounded-xl transition-colors">
                     <i data-lucide="log-out" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -136,7 +136,7 @@
 
         <main class="max-w-7xl mx-auto px-4 space-y-6">
             <!-- TIMER SECTION -->
-            <section class="glass rounded-3xl p-5 sm:p-6 w-full">
+            <section id="timer-section" class="glass rounded-3xl p-5 sm:p-6 w-full block">
                 <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <div class="p-2 bg-brandYellow/10 rounded-lg text-brandYellow">
@@ -251,7 +251,7 @@
         </main>
     </div>
 
-    <!-- МОДАЛКА УДАЛЕНИЯ -->
+    <!-- DELETE MODAL -->
     <div id="delete-modal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
         <div class="glass max-w-sm w-full p-6 rounded-3xl text-center">
             <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -285,7 +285,7 @@
         let progressChart = null;
         let workoutToDelete = null;
 
-        // --- ТАЙМЕР ---
+        // --- TIMER LOGIC ---
         let timerState = {
             interval: null,
             isRunning: false,
@@ -304,8 +304,11 @@
         }
 
         function updateTimerUI() {
-            document.getElementById('timer-display').textContent = formatTimerTime(timerState.timeLeft);
+            const display = document.getElementById('timer-display');
             const statusEl = document.getElementById('timer-status');
+            if(!display || !statusEl) return;
+
+            display.textContent = formatTimerTime(timerState.timeLeft);
             
             if (timerState.phase === 'idle') {
                 statusEl.textContent = 'ОЖИДАНИЕ';
@@ -381,7 +384,7 @@
             updateTimerUI();
         }
 
-        // --- AUTH ---
+        // --- AUTH LOGIC ---
         function switchAuthTab(mode) {
             authMode = mode;
             const emailInput = document.getElementById('email-input');
@@ -462,7 +465,7 @@
             btn.disabled = false;
         }
 
-        // --- APP LOGIC ---
+        // --- CORE APP LOGIC ---
         async function fetchWorkouts() {
             if (!currentUser) return;
             const { data, error } = await supabaseClient.from('workouts').select('*').eq('client_id', currentUser.id).order('date', { ascending: false });
@@ -477,10 +480,10 @@
         function initSuggestions() {
             const input = document.getElementById('exercise');
             const drop = document.getElementById('exercise-suggestions');
+            if(!input || !drop) return;
             
-            input.addEventListener('input', () => {
+            input.oninput = () => {
                 const val = input.value.toUpperCase();
-                // Получаем уникальные названия упражнений из истории
                 const uniqueExercises = [...new Set(workouts.map(w => w.exercise))];
                 const matches = uniqueExercises.filter(ex => ex.includes(val));
                 
@@ -492,16 +495,15 @@
                 } else {
                     drop.classList.add('hidden');
                 }
-            });
+            };
 
-            drop.addEventListener('click', (e) => {
+            drop.onclick = (e) => {
                 if (e.target.classList.contains('suggestion-item')) {
                     input.value = e.target.textContent;
                     drop.classList.add('hidden');
-                    // После выбора можно сразу обновить график по этому упражнению
                     renderHistory(input.value); 
                 }
-            });
+            };
 
             document.addEventListener('click', (e) => {
                 if (!input.contains(e.target) && !drop.contains(e.target)) {
@@ -544,6 +546,7 @@
             renderChart(filtered, term);
             const container = document.getElementById('history-container');
             if (!filtered.length) { container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 text-xs">ПУСТО</div>`; return; }
+            
             const groups = filtered.reduce((acc, w) => { (acc[w.date] = acc[w.date] || []).push(w); return acc; }, {});
             container.innerHTML = Object.keys(groups).sort().reverse().map(date => `
                 <div class="space-y-3">
@@ -588,22 +591,27 @@
             progressChart = new Chart(ctx, {
                 type: 'line',
                 data: { labels: allDates.map(d => d.split('-').reverse().slice(0,2).join('.')), datasets },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: { y: { ticks: { color: 'rgba(255,255,255,0.5)' } }, x: { ticks: { color: 'rgba(255,255,255,0.5)' } } }
+                }
             });
         }
 
-        // --- UTILS ---
         function showToast(msg, type = "success") {
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
-            t.className = `p-4 glass border-l-4 ${type==='error'?'border-red-500':'border-brandYellow'} rounded-xl`;
+            t.className = `p-4 glass border-l-4 ${type==='error'?'border-red-500':'border-brandYellow'} rounded-xl transition-opacity duration-300`;
             t.innerHTML = `<span class="text-xs font-bold uppercase">${msg}</span>`;
             c.appendChild(t);
-            setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 500); }, 3000);
+            setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 300); }, 3000);
         }
 
         function openDeleteModal(id) { workoutToDelete = id; document.getElementById('delete-modal').classList.remove('hidden'); document.getElementById('delete-modal').classList.add('flex'); }
         function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); document.getElementById('delete-modal').classList.remove('flex'); }
+        
         async function confirmDeleteWorkout() {
             const { error } = await supabaseClient.from('workouts').delete().eq('id', workoutToDelete);
             if (!error) { fetchWorkouts(); closeDeleteModal(); showToast("Удалено"); }
@@ -613,29 +621,50 @@
             document.getElementById('login-overlay').classList.add('hidden');
             const c = document.getElementById('app-content');
             c.classList.remove('hidden');
-            setTimeout(() => c.classList.add('opacity-100'), 50);
+            setTimeout(() => {
+                c.classList.add('opacity-100');
+                lucide.createIcons();
+                updateTimerUI();
+            }, 100);
             document.getElementById('display-client-id').textContent = currentUser.email;
             fetchWorkouts();
         }
 
+        // --- GLOBAL INIT ---
         window.addEventListener('load', () => {
-            lucide.createIcons();
-            flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
+
+            // Auth listener
             supabaseClient.auth.onAuthStateChange((ev, session) => {
                 if (ev === 'PASSWORD_RECOVERY') { switchAuthTab('update_password'); return; }
-                if (session?.user) { currentUser = session.user; showApp(); } 
-                else { currentUser = null; document.getElementById('login-overlay').classList.remove('hidden'); }
+                if (session?.user) { 
+                    currentUser = session.user; 
+                    showApp(); 
+                } else { 
+                    currentUser = null; 
+                    document.getElementById('login-overlay').classList.remove('hidden');
+                    document.getElementById('app-content').classList.add('hidden');
+                }
             });
 
-            document.getElementById('btn-timer-start').addEventListener('click', startTimer);
-            document.getElementById('btn-timer-pause').addEventListener('click', pauseTimer);
-            document.getElementById('btn-timer-stop').addEventListener('click', stopTimer);
-            document.getElementById('auth-form').addEventListener('submit', handleAuth);
-            document.getElementById('workout-form').addEventListener('submit', handleSaveWorkout);
-            document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteWorkout);
-            document.getElementById('search-input').addEventListener('input', (e) => renderHistory(e.target.value));
-            document.getElementById('logout-btn').addEventListener('click', () => { supabaseClient.auth.signOut(); location.reload(); });
+            // UI Events
+            document.getElementById('btn-timer-start').onclick = startTimer;
+            document.getElementById('btn-timer-pause').onclick = pauseTimer;
+            document.getElementById('btn-timer-stop').onclick = stopTimer;
+            document.getElementById('auth-form').onsubmit = handleAuth;
+            document.getElementById('workout-form').onsubmit = handleSaveWorkout;
+            document.getElementById('confirm-delete-btn').onclick = confirmDeleteWorkout;
+            document.getElementById('search-input').oninput = (e) => renderHistory(e.target.value);
+            
+            // Logout logic
+            document.getElementById('logout-btn').onclick = async () => {
+                await supabaseClient.auth.signOut();
+                location.reload();
+            };
+
+            lucide.createIcons();
         });
     </script>
 </body>
