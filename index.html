@@ -23,6 +23,9 @@
                         panel: 'rgba(17, 17, 17, 0.85)',
                         brandYellow: '#FFD700',
                         brandYellowHover: '#E6C200'
+                    },
+                    screens: {
+                        'xs': '400px',
                     }
                 }
             }
@@ -82,6 +85,27 @@
         .auth-tab.active { color: #FFD700; border-bottom: 2px solid #FFD700; }
 
         #timer-display { font-variant-numeric: tabular-nums; }
+
+        /* Smooth transition for hidden timer */
+        #timer-section {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            overflow: hidden;
+            opacity: 0;
+            border-width: 0;
+        }
+        #timer-section.is-visible {
+            max-height: 1000px;
+            padding-top: 1.5rem;
+            padding-bottom: 1.5rem;
+            margin-bottom: 1.5rem;
+            opacity: 1;
+            border-width: 1px;
+        }
     </style>
 </head>
 <body>
@@ -117,26 +141,34 @@
 
     <!-- MAIN APP CONTENT -->
     <div id="app-content" class="hidden opacity-0 transition-opacity duration-500 pb-12">
-        <header class="p-4 sm:p-6 flex justify-between items-center sticky top-0 z-50 glass mb-6">
-            <div class="min-w-0 pr-2">
+        <header class="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-center sticky top-0 z-50 glass mb-6 gap-4">
+            <div class="min-w-0 pr-2 self-start sm:self-center">
                 <h2 class="text-lg sm:text-xl font-black tracking-tighter leading-none truncate">FITNESS <span class="text-brandYellow">ROOM</span></h2>
-                <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-tight line-clamp-1">Помогаем достичь результата</p>
+                <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-tight line-clamp-1">Трекер тренировок</p>
             </div>
             
-            <div class="flex items-center gap-2 sm:gap-3 bg-white/5 border border-white/10 rounded-2xl py-1.5 px-3 sm:py-2 sm:px-4 shrink-0">
-                <div class="text-left">
-                    <span class="block text-[8px] sm:text-[10px] text-brandYellow font-black tracking-widest leading-none uppercase mb-0.5">АТЛЕТ</span>
-                    <span id="display-client-id" class="block text-[10px] sm:text-[11px] font-bold text-white max-w-[80px] sm:max-w-[150px] truncate opacity-80 leading-tight"></span>
-                </div>
-                <button id="logout-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 sm:p-2.5 rounded-xl transition-colors">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
+            <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <!-- Toggle Timer Button (Yellow Large) -->
+                <button id="toggle-timer-btn" class="flex-1 sm:flex-none px-6 h-12 rounded-xl btn-yellow text-[10px] sm:text-xs uppercase font-black tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-brandYellow/10">
+                    <i data-lucide="timer" class="w-4 h-4"></i>
+                    <span id="toggle-timer-text">ОТКРЫТЬ ТАЙМЕР</span>
                 </button>
+
+                <div class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl py-1 px-3 sm:py-1.5 sm:px-4 shrink-0">
+                    <div class="text-left">
+                        <span class="block text-[8px] sm:text-[10px] text-brandYellow font-black tracking-widest leading-none uppercase mb-0.5">АТЛЕТ</span>
+                        <span id="display-client-id" class="block text-[10px] sm:text-[11px] font-bold text-white max-w-[80px] sm:max-w-[150px] truncate opacity-80 leading-tight">...</span>
+                    </div>
+                    <button id="logout-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 sm:p-2.5 rounded-xl transition-colors">
+                        <i data-lucide="log-out" class="w-4 h-4 sm:w-5 h-5"></i>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 space-y-6">
-            <!-- TIMER SECTION -->
-            <section id="timer-section" class="glass rounded-3xl p-5 sm:p-6 w-full block">
+        <main class="max-w-7xl mx-auto px-4">
+            <!-- TIMER SECTION (Hidden by default) -->
+            <section id="timer-section" class="glass rounded-3xl p-5 sm:p-6 w-full">
                 <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <div class="p-2 bg-brandYellow/10 rounded-lg text-brandYellow">
@@ -183,9 +215,6 @@
             <div class="flex flex-col lg:flex-row gap-6">
                 <section class="glass rounded-3xl p-5 sm:p-6 flex flex-col w-full lg:w-[35%] shrink-0">
                     <div class="flex items-center gap-3 mb-6">
-                        <div class="p-2 bg-brandYellow/10 rounded-lg text-brandYellow">
-                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                        </div>
                         <h3 class="text-lg font-bold uppercase tracking-tight">Добавить подход</h3>
                     </div>
 
@@ -382,6 +411,18 @@
             timerState.phase = 'idle';
             timerState.timeLeft = parseInt(document.getElementById('timer-work').value) || 0;
             updateTimerUI();
+        }
+
+        function toggleTimer() {
+            const section = document.getElementById('timer-section');
+            const textEl = document.getElementById('toggle-timer-text');
+            section.classList.toggle('is-visible');
+            
+            if (section.classList.contains('is-visible')) {
+                textEl.textContent = "ЗАКРЫТЬ ТАЙМЕР";
+            } else {
+                textEl.textContent = "ОТКРЫТЬ ТАЙМЕР";
+            }
         }
 
         // --- AUTH LOGIC ---
@@ -623,7 +664,7 @@
             
             flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
 
-            // Auth listener with explicit session check
+            // Auth listener
             supabaseClient.auth.onAuthStateChange((ev, session) => {
                 if (ev === 'SIGNED_OUT') {
                     showAuth();
@@ -641,25 +682,18 @@
             document.getElementById('btn-timer-start').onclick = startTimer;
             document.getElementById('btn-timer-pause').onclick = pauseTimer;
             document.getElementById('btn-timer-stop').onclick = stopTimer;
+            document.getElementById('toggle-timer-btn').onclick = toggleTimer;
+            
             document.getElementById('auth-form').onsubmit = handleAuth;
             document.getElementById('workout-form').onsubmit = handleSaveWorkout;
             document.getElementById('confirm-delete-btn').onclick = confirmDeleteWorkout;
             document.getElementById('search-input').oninput = (e) => renderHistory(e.target.value);
             
-            // Logout logic - FIX: Force immediate UI update then signOut
+            // Logout logic
             document.getElementById('logout-btn').onclick = async () => {
-                try {
-                    // 1. Сначала скрываем приложение визуально
-                    showAuth();
-                    // 2. Выходим из Supabase
-                    const { error } = await supabaseClient.auth.signOut();
-                    if (error) throw error;
-                    // 3. Перезагружаем страницу для очистки всех слушателей и кэша
-                    window.location.reload();
-                } catch (e) {
-                    console.error("Logout error", e);
-                    window.location.reload(); // Даже если ошибка, релоад поможет
-                }
+                showAuth();
+                await supabaseClient.auth.signOut();
+                window.location.reload();
             };
 
             lucide.createIcons();
