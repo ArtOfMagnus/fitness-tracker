@@ -57,7 +57,8 @@
 
         .glass { background: rgba(17, 17, 17, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .btn-yellow { background: #FFD700; color: #000; font-weight: 700; transition: all 0.3s; }
-        .btn-yellow:hover { background: #E6C200; transform: translateY(-1px); }
+        .btn-yellow:hover:not(:disabled) { background: #E6C200; transform: translateY(-1px); }
+        .btn-yellow:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .input-field { 
             background: rgba(255, 255, 255, 0.05); 
@@ -67,23 +68,20 @@
             width: 100%; 
             height: 50px; 
             outline: none; 
-            transition: border-color 0.3s; 
+            transition: border-color 0.3s, opacity 0.3s; 
             color: #fff;
             appearance: none;
             font-size: 16px; 
         }
-        textarea.input-field {
-            height: auto;
-            min-height: 80px;
-        }
-        .input-field:focus { border-color: #FFD700; }
+        .input-field:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(255, 255, 255, 0.02); }
+        .input-field:focus:not(:disabled) { border-color: #FFD700; }
         
         .suggestion-item { padding: 12px 16px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         .suggestion-item:hover { background: rgba(255, 255, 255, 0.1); }
         
         .auth-tab.active { color: #FFD700; border-bottom: 2px solid #FFD700; }
 
-        .container-fluid { width: 100%; padding-left: 1rem; padding-right: 1rem; }
+        #timer-display { font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
@@ -95,10 +93,10 @@
         <div class="w-full max-w-md">
             <div class="text-center mb-8">
                 <h1 class="text-4xl sm:text-5xl font-black mb-1 tracking-tighter text-white">FITNESS <span class="text-brandYellow">ROOM</span></h1>
-                <h2 class="text-2xl sm:text-3xl font-black tracking-tighter text-gray-500 opacity-50 uppercase">Tracker</h2>
+                <h2 id="auth-subtitle" class="text-2xl sm:text-3xl font-black tracking-tighter text-gray-500 opacity-50 uppercase">Tracker</h2>
             </div>
             
-            <div class="flex gap-4 mb-6 border-b border-white/10">
+            <div id="auth-tabs" class="flex gap-4 mb-6 border-b border-white/10">
                 <button onclick="switchAuthTab('login')" id="tab-login" class="auth-tab active pb-2 flex-1 font-bold text-xs uppercase tracking-widest transition-all">Вход</button>
                 <button onclick="switchAuthTab('register')" id="tab-register" class="auth-tab pb-2 flex-1 font-bold text-xs uppercase tracking-widest transition-all">Регистрация</button>
             </div>
@@ -106,7 +104,13 @@
             <form id="auth-form" class="space-y-4">
                 <input type="email" id="email-input" placeholder="Email" required class="input-field">
                 <input type="password" id="password-input" placeholder="Пароль" required class="input-field">
+                
+                <div id="forgot-password-container" class="text-right mt-1">
+                    <button type="button" onclick="switchAuthTab('reset')" class="text-xs text-brandYellow hover:underline opacity-80 transition-opacity">Забыли пароль?</button>
+                </div>
+
                 <button type="submit" id="auth-submit-btn" class="w-full rounded-xl btn-yellow text-lg uppercase h-14">Войти</button>
+                <button type="button" id="back-to-login-btn" onclick="switchAuthTab('login')" class="hidden w-full rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm uppercase h-12 font-bold">Отмена</button>
             </form>
         </div>
     </div>
@@ -130,7 +134,52 @@
             </div>
         </header>
 
-        <main class="max-w-7xl mx-auto px-4 space-y-8">
+        <main class="max-w-7xl mx-auto px-4 space-y-6">
+            <!-- TIMER SECTION -->
+            <section class="glass rounded-3xl p-5 sm:p-6 w-full">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-brandYellow/10 rounded-lg text-brandYellow">
+                            <i data-lucide="timer" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-lg font-bold uppercase tracking-tight">Таймер круговой тренировки</h3>
+                    </div>
+                    
+                    <div class="flex flex-col items-start md:items-end w-full md:w-auto">
+                        <div id="timer-display" class="text-5xl sm:text-6xl font-black tracking-tighter text-white tabular-nums leading-none">00:00</div>
+                        <div id="timer-status" class="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">Ожидание</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 sm:gap-4 mt-6">
+                    <div>
+                        <label class="block text-[9px] sm:text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Работа (сек)</label>
+                        <input type="number" id="timer-work" value="45" min="1" class="input-field text-center font-bold text-xl">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] sm:text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Отдых (сек)</label>
+                        <input type="number" id="timer-rest" value="15" min="0" class="input-field text-center font-bold text-xl">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] sm:text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Круги</label>
+                        <input type="number" id="timer-rounds" value="3" min="1" class="input-field text-center font-bold text-xl">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-4">
+                    <button id="btn-timer-start" class="flex-1 h-14 rounded-xl btn-yellow flex items-center justify-center gap-2">
+                        <i data-lucide="play" class="w-5 h-5 fill-current"></i> <span class="font-bold uppercase tracking-tight hidden sm:inline">Старт</span>
+                    </button>
+                    <button id="btn-timer-pause" disabled class="flex-1 h-14 rounded-xl bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center gap-2 font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="pause" class="w-5 h-5 fill-current"></i> <span class="tracking-tight hidden sm:inline">Пауза</span>
+                    </button>
+                    <button id="btn-timer-stop" disabled class="flex-1 h-14 rounded-xl bg-red-500/20 text-red-500 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2 font-bold uppercase disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="square" class="w-4 h-4 fill-current"></i> <span class="tracking-tight hidden sm:inline">Стоп</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- WORKOUT & CHARTS -->
             <div class="flex flex-col lg:flex-row gap-6">
                 <section class="glass rounded-3xl p-5 sm:p-6 flex flex-col w-full lg:w-[35%] shrink-0">
                     <div class="flex items-center gap-3 mb-6">
@@ -149,7 +198,7 @@
                         <div class="relative">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Упражнение</label>
                             <input type="text" id="exercise" required placeholder="НАПРИМЕР: ЖИМ ШТАНГИ" autocomplete="off" class="input-field uppercase">
-                            <div id="exercise-suggestions" class="absolute left-0 right-0 top-full mt-2 glass rounded-xl hidden z-50 shadow-2xl overflow-hidden max-h-48 overflow-y-auto"></div>
+                            <div id="exercise-suggestions" class="absolute left-0 right-0 top-full mt-1 glass rounded-xl hidden z-50 shadow-2xl overflow-hidden max-h-48 overflow-y-auto"></div>
                         </div>
 
                         <div>
@@ -188,7 +237,8 @@
                 </section>
             </div>
 
-            <section class="space-y-4">
+            <!-- HISTORY -->
+            <section class="space-y-4 mt-8">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
                     <h3 class="text-xl sm:text-2xl font-black uppercase tracking-tighter">История</h3>
                     <div class="relative w-full sm:w-64">
@@ -235,11 +285,147 @@
         let progressChart = null;
         let workoutToDelete = null;
 
+        // --- ТАЙМЕР ---
+        let timerState = {
+            interval: null,
+            isRunning: false,
+            phase: 'idle', 
+            currentRound: 1,
+            timeLeft: 0,
+            workSecs: 0,
+            restSecs: 0,
+            totalRounds: 0
+        };
+
+        function formatTimerTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateTimerUI() {
+            document.getElementById('timer-display').textContent = formatTimerTime(timerState.timeLeft);
+            const statusEl = document.getElementById('timer-status');
+            
+            if (timerState.phase === 'idle') {
+                statusEl.textContent = 'ОЖИДАНИЕ';
+                statusEl.className = 'text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mt-1';
+            } else if (timerState.phase === 'work') {
+                statusEl.textContent = `РАБОТА • КРУГ ${timerState.currentRound}/${timerState.totalRounds}`;
+                statusEl.className = 'text-[10px] sm:text-xs font-bold uppercase tracking-widest text-brandYellow mt-1';
+            } else if (timerState.phase === 'rest') {
+                statusEl.textContent = `ОТДЫХ • КРУГ ${timerState.currentRound}/${timerState.totalRounds}`;
+                statusEl.className = 'text-[10px] sm:text-xs font-bold uppercase tracking-widest text-blue-400 mt-1';
+            }
+
+            document.getElementById('btn-timer-start').disabled = timerState.isRunning;
+            document.getElementById('btn-timer-pause').disabled = !timerState.isRunning;
+            document.getElementById('btn-timer-stop').disabled = timerState.phase === 'idle';
+            
+            const inputsDisabled = timerState.phase !== 'idle';
+            document.getElementById('timer-work').disabled = inputsDisabled;
+            document.getElementById('timer-rest').disabled = inputsDisabled;
+            document.getElementById('timer-rounds').disabled = inputsDisabled;
+        }
+
+        function timerTick() {
+            if (timerState.timeLeft > 0) {
+                timerState.timeLeft--;
+                updateTimerUI();
+            } else {
+                if (timerState.phase === 'work') {
+                    if (timerState.currentRound >= timerState.totalRounds) {
+                        stopTimer();
+                        showToast("Тренировка завершена!", "success");
+                        return;
+                    }
+                    timerState.phase = 'rest';
+                    timerState.timeLeft = timerState.restSecs;
+                } else {
+                    timerState.currentRound++;
+                    timerState.phase = 'work';
+                    timerState.timeLeft = timerState.workSecs;
+                }
+                updateTimerUI();
+            }
+        }
+
+        function startTimer() {
+            if (timerState.isRunning) return;
+            if (timerState.phase === 'idle') {
+                timerState.workSecs = parseInt(document.getElementById('timer-work').value) || 0;
+                timerState.restSecs = parseInt(document.getElementById('timer-rest').value) || 0;
+                timerState.totalRounds = parseInt(document.getElementById('timer-rounds').value) || 0;
+                if (timerState.workSecs <= 0 || timerState.totalRounds <= 0) return showToast("Введите корректные данные", "error");
+                timerState.currentRound = 1;
+                timerState.phase = 'work';
+                timerState.timeLeft = timerState.workSecs;
+            }
+            timerState.isRunning = true;
+            updateTimerUI();
+            timerState.interval = setInterval(timerTick, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerState.interval);
+            timerState.isRunning = false;
+            updateTimerUI();
+            document.getElementById('timer-status').textContent = "ПАУЗА";
+        }
+
+        function stopTimer() {
+            clearInterval(timerState.interval);
+            timerState.isRunning = false;
+            timerState.phase = 'idle';
+            timerState.timeLeft = parseInt(document.getElementById('timer-work').value) || 0;
+            updateTimerUI();
+        }
+
+        // --- AUTH ---
         function switchAuthTab(mode) {
             authMode = mode;
+            const emailInput = document.getElementById('email-input');
+            const passInput = document.getElementById('password-input');
+            const forgotPass = document.getElementById('forgot-password-container');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const backBtn = document.getElementById('back-to-login-btn');
+            const tabs = document.getElementById('auth-tabs');
+            const title = document.getElementById('auth-subtitle');
+
             document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(`tab-${mode}`).classList.add('active');
-            document.getElementById('auth-submit-btn').textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
+            
+            if (mode === 'login' || mode === 'register') {
+                tabs.classList.remove('hidden');
+                emailInput.classList.remove('hidden');
+                passInput.classList.remove('hidden');
+                backBtn.classList.add('hidden');
+                title.textContent = "Tracker";
+                if (mode === 'login') {
+                    document.getElementById('tab-login').classList.add('active');
+                    submitBtn.textContent = 'Войти';
+                    forgotPass.classList.remove('hidden');
+                } else {
+                    document.getElementById('tab-register').classList.add('active');
+                    submitBtn.textContent = 'Создать аккаунт';
+                    forgotPass.classList.add('hidden');
+                }
+            } else if (mode === 'reset') {
+                tabs.classList.add('hidden');
+                passInput.classList.add('hidden');
+                forgotPass.classList.add('hidden');
+                submitBtn.textContent = 'Отправить ссылку';
+                backBtn.classList.remove('hidden');
+                title.textContent = "Восстановление";
+            } else if (mode === 'update_password') {
+                tabs.classList.add('hidden');
+                emailInput.classList.add('hidden');
+                passInput.classList.remove('hidden');
+                passInput.placeholder = "Новый пароль";
+                forgotPass.classList.add('hidden');
+                submitBtn.textContent = 'Сохранить пароль';
+                backBtn.classList.add('hidden');
+                title.textContent = "Новый пароль";
+            }
         }
 
         async function handleAuth(e) {
@@ -253,72 +439,81 @@
                 if (authMode === 'login') {
                     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
                     if (error) throw error;
-                } else {
+                } else if (authMode === 'register') {
                     const { error } = await supabaseClient.auth.signUp({ email, password });
                     if (error) throw error;
                     showToast("Успех! Теперь войдите.");
                     switchAuthTab('login');
+                } else if (authMode === 'reset') {
+                    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                        redirectTo: window.location.origin + window.location.pathname,
+                    });
+                    if (error) throw error;
+                    showToast("Ссылка отправлена!");
+                    switchAuthTab('login');
+                } else if (authMode === 'update_password') {
+                    const { error } = await supabaseClient.auth.updateUser({ password });
+                    if (error) throw error;
+                    showToast("Пароль изменен!");
+                    window.location.hash = "";
+                    showApp();
                 }
             } catch (err) { showToast(err.message, "error"); }
             btn.disabled = false;
         }
 
-        window.addEventListener('load', async () => {
-            lucide.createIcons();
-            flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru", disableMobile: "true" });
-            
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            
-            supabaseClient.auth.onAuthStateChange((event, session) => {
-                if (session?.user) {
-                    currentUser = session.user;
-                    showApp();
-                } else {
-                    currentUser = null;
-                    showLogin();
-                }
-            });
-            
-            initCustomSuggestions();
-            document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteWorkout);
-        });
-
-        function showLogin() {
-            document.getElementById('login-overlay').classList.remove('hidden');
-            document.getElementById('app-content').classList.add('hidden');
-        }
-
-        function showApp() {
-            document.getElementById('login-overlay').classList.add('hidden');
-            const content = document.getElementById('app-content');
-            content.classList.remove('hidden');
-            setTimeout(() => content.classList.add('opacity-100'), 50);
-            document.getElementById('display-client-id').textContent = currentUser.email;
-            fetchWorkouts();
-        }
-
+        // --- APP LOGIC ---
         async function fetchWorkouts() {
             if (!currentUser) return;
-            const { data, error } = await supabaseClient
-                .from('workouts')
-                .select('*')
-                .eq('client_id', currentUser.id)
-                .order('date', { ascending: false });
-            
-            if (!error) {
-                workouts = data || [];
-                updateDashboard();
+            const { data, error } = await supabaseClient.from('workouts').select('*').eq('client_id', currentUser.id).order('date', { ascending: false });
+            if (!error) { 
+                workouts = data || []; 
+                updateDashboard(); 
                 renderHistory(document.getElementById('search-input').value); 
+                initSuggestions();
             }
+        }
+
+        function initSuggestions() {
+            const input = document.getElementById('exercise');
+            const drop = document.getElementById('exercise-suggestions');
+            
+            input.addEventListener('input', () => {
+                const val = input.value.toUpperCase();
+                // Получаем уникальные названия упражнений из истории
+                const uniqueExercises = [...new Set(workouts.map(w => w.exercise))];
+                const matches = uniqueExercises.filter(ex => ex.includes(val));
+                
+                if (val && matches.length) {
+                    drop.innerHTML = matches.slice(0, 5).map(m => `
+                        <div class="suggestion-item text-xs font-bold uppercase">${m}</div>
+                    `).join('');
+                    drop.classList.remove('hidden');
+                } else {
+                    drop.classList.add('hidden');
+                }
+            });
+
+            drop.addEventListener('click', (e) => {
+                if (e.target.classList.contains('suggestion-item')) {
+                    input.value = e.target.textContent;
+                    drop.classList.add('hidden');
+                    // После выбора можно сразу обновить график по этому упражнению
+                    renderHistory(input.value); 
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!input.contains(e.target) && !drop.contains(e.target)) {
+                    drop.classList.add('hidden');
+                }
+            });
         }
 
         async function handleSaveWorkout(e) {
             e.preventDefault();
-            if (!currentUser) return showToast("Вы не вошли", "error");
-
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
-
             const payload = {
                 client_id: currentUser.id,
                 date: document.getElementById('date').value,
@@ -326,7 +521,6 @@
                 result: parseFloat(document.getElementById('result').value),
                 comment: document.getElementById('comment').value.trim()
             };
-
             const { error } = await supabaseClient.from('workouts').insert([payload]);
             if (!error) {
                 showToast("Сохранено!");
@@ -334,157 +528,34 @@
                 document.getElementById('result').value = '';
                 document.getElementById('comment').value = '';
                 fetchWorkouts();
-            } else {
-                showToast(`Ошибка сохранения`, "error");
-            }
+            } else showToast("Ошибка сохранения", "error");
             btn.disabled = false;
-        }
-
-        // --- УДАЛЕНИЕ ---
-        function openDeleteModal(id) {
-            workoutToDelete = id;
-            document.getElementById('delete-modal').classList.remove('hidden');
-            document.getElementById('delete-modal').classList.add('flex');
-        }
-
-        function closeDeleteModal() {
-            workoutToDelete = null;
-            document.getElementById('delete-modal').classList.add('hidden');
-            document.getElementById('delete-modal').classList.remove('flex');
-        }
-
-        async function confirmDeleteWorkout() {
-            if (!workoutToDelete || !currentUser) return;
-            
-            const btn = document.getElementById('confirm-delete-btn');
-            btn.disabled = true;
-            btn.textContent = "УДАЛЯЕМ...";
-
-            const { error } = await supabaseClient
-                .from('workouts')
-                .delete()
-                .eq('id', workoutToDelete)
-                .eq('client_id', currentUser.id);
-
-            if (!error) {
-                showToast("Запись удалена");
-                fetchWorkouts();
-                closeDeleteModal();
-            } else {
-                showToast("Ошибка при удалении", "error");
-            }
-            
-            btn.disabled = false;
-            btn.textContent = "УДАЛИТЬ";
         }
 
         function updateDashboard() {
             document.getElementById('stat-total').textContent = workouts.length;
-            const max = workouts.length > 0 ? Math.max(...workouts.map(w => w.result)) : 0;
+            const max = workouts.length ? Math.max(...workouts.map(w => w.result)) : 0;
             document.getElementById('stat-max').textContent = `${max} кг`;
-        }
-
-        function getColor(index) {
-            const hues = [45, 50, 40, 55, 35];
-            const hue = hues[index % hues.length];
-            return `hsl(${hue}, 100%, ${40 + (index * 10) % 30}%)`;
-        }
-
-        function renderChart(filteredWorkouts, searchTerm) {
-            const ctx = document.getElementById('progressChart').getContext('2d');
-            if (progressChart) progressChart.destroy();
-            
-            const labelEl = document.getElementById('current-exercise-label');
-
-            if (!workouts.length) {
-                labelEl.textContent = "НЕТ ДАННЫХ ДЛЯ ГРАФИКА";
-                return;
-            }
-
-            let datasets = [];
-            let allDates = [...new Set(workouts.map(w => w.date))].sort();
-
-            const exerciseGroups = filteredWorkouts.reduce((acc, w) => {
-                if (!acc[w.exercise]) acc[w.exercise] = {};
-                if (!acc[w.exercise][w.date] || acc[w.exercise][w.date] < w.result) {
-                    acc[w.exercise][w.date] = w.result;
-                }
-                return acc;
-            }, {});
-
-            const exercises = Object.keys(exerciseGroups);
-            exercises.forEach((ex, idx) => {
-                const color = searchTerm ? '#FFD700' : getColor(idx);
-                const data = allDates.map(date => exerciseGroups[ex][date] || null);
-
-                datasets.push({
-                    label: ex,
-                    data: data,
-                    borderColor: color,
-                    backgroundColor: color + '20',
-                    fill: false,
-                    tension: 0.3,
-                    borderWidth: searchTerm ? 3 : 2,
-                    pointRadius: searchTerm ? 4 : 2,
-                    pointBackgroundColor: color,
-                    spanGaps: true
-                });
-            });
-
-            labelEl.textContent = searchTerm ? `ПРОГРЕСС: ${searchTerm}` : "ОБЩАЯ ДИНАМИКА";
-
-            progressChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: allDates.map(d => d.split('-').reverse().slice(0,2).join('.')),
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { 
-                            display: !searchTerm && exercises.length < 8,
-                            labels: { color: '#888', font: { size: 9, weight: 'bold' }, boxWidth: 8, padding: 10 }
-                        },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 9 } } },
-                        x: { grid: { display: false }, ticks: { color: '#666', font: { size: 9 } } }
-                    }
-                }
-            });
         }
 
         function renderHistory(filter = "") {
             const term = filter.trim().toUpperCase();
             const filtered = term ? workouts.filter(w => w.exercise.includes(term)) : workouts;
-            
             renderChart(filtered, term);
-
             const container = document.getElementById('history-container');
-            if (!filtered.length) {
-                container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 text-xs tracking-widest uppercase">НИЧЕГО НЕ НАЙДЕНО</div>`;
-                return;
-            }
-
+            if (!filtered.length) { container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 text-xs">ПУСТО</div>`; return; }
             const groups = filtered.reduce((acc, w) => { (acc[w.date] = acc[w.date] || []).push(w); return acc; }, {});
             container.innerHTML = Object.keys(groups).sort().reverse().map(date => `
                 <div class="space-y-3">
-                    <div class="flex items-center gap-2 opacity-50 px-2"><span class="text-[9px] font-black tracking-widest">${date.split('-').reverse().join('.')}</span><div class="h-px flex-1 bg-white/10"></div></div>
+                    <div class="flex items-center gap-2 opacity-50 px-2"><span class="text-[9px] font-black">${date.split('-').reverse().join('.')}</span><div class="h-px flex-1 bg-white/10"></div></div>
                     ${groups[date].map(w => `
-                        <div class="glass rounded-2xl p-4 hover:border-brandYellow/50 transition-all group relative flex flex-col justify-center min-h-[80px]">
-                            <div class="flex justify-between items-center gap-2 pr-8">
-                                <h4 class="font-bold text-sm uppercase tracking-tight truncate flex-1">${w.exercise}</h4>
-                                <span class="text-lg font-black text-brandYellow shrink-0">${w.result} <small class="text-[9px] opacity-50 uppercase font-bold">КГ</small></span>
+                        <div class="glass rounded-2xl p-4 relative group">
+                            <div class="flex justify-between items-center pr-8">
+                                <h4 class="font-bold text-sm uppercase truncate">${w.exercise}</h4>
+                                <span class="text-lg font-black text-brandYellow">${w.result} <small class="text-[9px]">КГ</small></span>
                             </div>
-                            ${w.comment ? `<p class="text-[10px] text-gray-500 mt-2 italic border-t border-white/5 pt-2 line-clamp-2 pr-8">${w.comment}</p>` : ''}
-                            
-                            <!-- Кнопка удаления -->
-                            <button onclick="openDeleteModal('${w.id}')" class="absolute top-1/2 -translate-y-1/2 right-3 text-white/20 hover:text-red-500 transition-colors p-2 flex items-center justify-center">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            ${w.comment ? `<p class="text-[10px] text-gray-500 mt-2 italic">${w.comment}</p>` : ''}
+                            <button onclick="openDeleteModal('${w.id}')" class="absolute right-3 top-4 text-white/20 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                         </div>
                     `).join('')}
                 </div>
@@ -492,41 +563,80 @@
             lucide.createIcons();
         }
 
+        function renderChart(filtered, term) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            if (progressChart) progressChart.destroy();
+            const labelEl = document.getElementById('current-exercise-label');
+            if (!workouts.length) { labelEl.textContent = "НЕТ ДАННЫХ"; return; }
+            
+            const allDates = [...new Set(workouts.map(w => w.date))].sort();
+            const exerciseGroups = filtered.reduce((acc, w) => {
+                if (!acc[w.exercise]) acc[w.exercise] = {};
+                if (!acc[w.exercise][w.date] || acc[w.exercise][w.date] < w.result) acc[w.exercise][w.date] = w.result;
+                return acc;
+            }, {});
+
+            const datasets = Object.keys(exerciseGroups).map((ex, i) => ({
+                label: ex,
+                data: allDates.map(d => exerciseGroups[ex][d] || null),
+                borderColor: term ? '#FFD700' : `hsl(${(i*45)%360}, 70%, 50%)`,
+                tension: 0.3,
+                spanGaps: true
+            }));
+
+            labelEl.textContent = term ? `ПРОГРЕСС: ${term}` : "ДИНАМИКА";
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: allDates.map(d => d.split('-').reverse().slice(0,2).join('.')), datasets },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        // --- UTILS ---
         function showToast(msg, type = "success") {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `p-4 rounded-xl glass border-l-4 shadow-xl transition-all ${type === 'error' ? 'border-red-500' : 'border-brandYellow'}`;
-            toast.innerHTML = `<span class="text-xs font-bold uppercase">${msg}</span>`;
-            container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `p-4 glass border-l-4 ${type==='error'?'border-red-500':'border-brandYellow'} rounded-xl`;
+            t.innerHTML = `<span class="text-xs font-bold uppercase">${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(), 500); }, 3000);
         }
 
-        function initCustomSuggestions() {
-            const input = document.getElementById('exercise');
-            const drop = document.getElementById('exercise-suggestions');
-            input.addEventListener('input', () => {
-                const val = input.value.toUpperCase();
-                const matches = [...new Set(workouts.map(w => w.exercise))].filter(ex => ex.includes(val));
-                if (val && matches.length) {
-                    drop.innerHTML = matches.slice(0, 5).map(m => `<div class="suggestion-item text-xs font-bold uppercase">${m}</div>`).join('');
-                    drop.style.display = 'block';
-                } else drop.style.display = 'none';
-            });
-            drop.addEventListener('click', (e) => {
-                if (e.target.classList.contains('suggestion-item')) {
-                    input.value = e.target.textContent;
-                    drop.style.display = 'none';
-                    renderHistory(input.value); 
-                }
-            });
-            document.addEventListener('click', (e) => { if (!input.contains(e.target)) drop.style.display = 'none'; });
+        function openDeleteModal(id) { workoutToDelete = id; document.getElementById('delete-modal').classList.remove('hidden'); document.getElementById('delete-modal').classList.add('flex'); }
+        function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); document.getElementById('delete-modal').classList.remove('flex'); }
+        async function confirmDeleteWorkout() {
+            const { error } = await supabaseClient.from('workouts').delete().eq('id', workoutToDelete);
+            if (!error) { fetchWorkouts(); closeDeleteModal(); showToast("Удалено"); }
         }
 
-        document.getElementById('auth-form').addEventListener('submit', handleAuth);
-        document.getElementById('workout-form').addEventListener('submit', handleSaveWorkout);
-        document.getElementById('search-input').addEventListener('input', (e) => renderHistory(e.target.value));
-        document.getElementById('logout-btn').addEventListener('click', () => { supabaseClient.auth.signOut(); location.reload(); });
+        function showApp() {
+            document.getElementById('login-overlay').classList.add('hidden');
+            const c = document.getElementById('app-content');
+            c.classList.remove('hidden');
+            setTimeout(() => c.classList.add('opacity-100'), 50);
+            document.getElementById('display-client-id').textContent = currentUser.email;
+            fetchWorkouts();
+        }
+
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru" });
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabaseClient.auth.onAuthStateChange((ev, session) => {
+                if (ev === 'PASSWORD_RECOVERY') { switchAuthTab('update_password'); return; }
+                if (session?.user) { currentUser = session.user; showApp(); } 
+                else { currentUser = null; document.getElementById('login-overlay').classList.remove('hidden'); }
+            });
+
+            document.getElementById('btn-timer-start').addEventListener('click', startTimer);
+            document.getElementById('btn-timer-pause').addEventListener('click', pauseTimer);
+            document.getElementById('btn-timer-stop').addEventListener('click', stopTimer);
+            document.getElementById('auth-form').addEventListener('submit', handleAuth);
+            document.getElementById('workout-form').addEventListener('submit', handleSaveWorkout);
+            document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteWorkout);
+            document.getElementById('search-input').addEventListener('input', (e) => renderHistory(e.target.value));
+            document.getElementById('logout-btn').addEventListener('click', () => { supabaseClient.auth.signOut(); location.reload(); });
+        });
     </script>
 </body>
 </html>
-
