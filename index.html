@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITNESS ROOM — TRACKER</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Montserrat', 'sans-serif'] },
+                    colors: {
+                        dark: '#000000',
+                        panel: 'rgba(17, 17, 17, 0.85)',
+                        brandYellow: '#FFD700',
+                        brandYellowHover: '#E6C200'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            background: #000; 
+            color: #fff; 
+            font-family: 'Montserrat', sans-serif; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        .bg-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('https://avatars.mds.yandex.net/get-altay/16431464/2a0000019aba46bade68ec0322f2489ce033/XXXL');
+            background-size: cover;
+            background-position: center;
+            z-index: -2;
+        }
+        .bg-darken {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(2px);
+            z-index: -1;
+        }
+
+        .glass { background: rgba(17, 17, 17, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .btn-yellow { background: #FFD700; color: #000; font-weight: 700; transition: all 0.3s; }
+        .btn-yellow:hover { background: #E6C200; transform: translateY(-1px); }
+        
+        .input-field { 
+            background: rgba(255, 255, 255, 0.05); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 12px; 
+            padding: 12px 16px; 
+            width: 100%; 
+            height: 50px; 
+            outline: none; 
+            transition: border-color 0.3s; 
+            color: #fff;
+            appearance: none;
+            font-size: 16px; 
+        }
+        textarea.input-field {
+            height: auto;
+            min-height: 80px;
+        }
+        .input-field:focus { border-color: #FFD700; }
+        
+        .suggestion-item { padding: 12px 16px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .suggestion-item:hover { background: rgba(255, 255, 255, 0.1); }
+        
+        .auth-tab.active { color: #FFD700; border-bottom: 2px solid #FFD700; }
+
+        .container-fluid { width: 100%; padding-left: 1rem; padding-right: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="bg-overlay"></div>
+    <div class="bg-darken"></div>
+
+    <!-- AUTH OVERLAY -->
+    <div id="login-overlay" class="fixed inset-0 z-[100] glass flex items-center justify-center p-4">
+        <div class="w-full max-w-md">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl sm:text-5xl font-black mb-1 tracking-tighter text-white">FITNESS <span class="text-brandYellow">ROOM</span></h1>
+                <h2 class="text-2xl sm:text-3xl font-black tracking-tighter text-gray-500 opacity-50 uppercase">Tracker</h2>
+            </div>
+            
+            <div class="flex gap-4 mb-6 border-b border-white/10">
+                <button onclick="switchAuthTab('login')" id="tab-login" class="auth-tab active pb-2 flex-1 font-bold text-xs uppercase tracking-widest transition-all">Вход</button>
+                <button onclick="switchAuthTab('register')" id="tab-register" class="auth-tab pb-2 flex-1 font-bold text-xs uppercase tracking-widest transition-all">Регистрация</button>
+            </div>
+
+            <form id="auth-form" class="space-y-4">
+                <input type="email" id="email-input" placeholder="Email" required class="input-field">
+                <input type="password" id="password-input" placeholder="Пароль" required class="input-field">
+                <button type="submit" id="auth-submit-btn" class="w-full rounded-xl btn-yellow text-lg uppercase h-14">Войти</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP CONTENT -->
+    <div id="app-content" class="hidden opacity-0 transition-opacity duration-500 pb-12">
+        <header class="p-4 sm:p-6 flex justify-between items-center sticky top-0 z-50 glass mb-6">
+            <div class="min-w-0 pr-2">
+                <h2 class="text-lg sm:text-xl font-black tracking-tighter leading-none truncate">FITNESS <span class="text-brandYellow">ROOM</span></h2>
+                <p class="text-[9px] sm:text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-tight line-clamp-1">Помогаем достичь результата</p>
+            </div>
+            
+            <div class="flex items-center gap-2 sm:gap-3 bg-white/5 border border-white/10 rounded-2xl py-1.5 px-3 sm:py-2 sm:px-4 shrink-0">
+                <div class="text-left">
+                    <span class="block text-[8px] sm:text-[10px] text-brandYellow font-black tracking-widest leading-none uppercase mb-0.5">АТЛЕТ</span>
+                    <span id="display-client-id" class="block text-[10px] sm:text-[11px] font-bold text-white max-w-[80px] sm:max-w-[150px] truncate opacity-80 leading-tight"></span>
+                </div>
+                <button id="logout-btn" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 sm:p-2.5 rounded-xl transition-colors" title="Выйти">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 space-y-8">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <section class="glass rounded-3xl p-5 sm:p-6 flex flex-col w-full lg:w-[35%] shrink-0">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-brandYellow/10 rounded-lg text-brandYellow">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="text-lg font-bold uppercase tracking-tight">Добавить подход</h3>
+                    </div>
+
+                    <form id="workout-form" class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Дата</label>
+                            <input type="text" id="date" required class="input-field">
+                        </div>
+                        
+                        <div class="relative">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Упражнение</label>
+                            <input type="text" id="exercise" required placeholder="НАПРИМЕР: ЖИМ ШТАНГИ" autocomplete="off" class="input-field uppercase">
+                            <div id="exercise-suggestions" class="absolute left-0 right-0 top-full mt-2 glass rounded-xl hidden z-50 shadow-2xl overflow-hidden max-h-48 overflow-y-auto"></div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Вес (кг)</label>
+                            <input type="number" id="result" step="0.1" required placeholder="0.0" class="input-field">
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1.5 ml-1">Заметка</label>
+                            <textarea id="comment" maxlength="100" placeholder="Повторения, темп и др..." rows="2" class="input-field resize-none"></textarea>
+                        </div>
+
+                        <button type="submit" id="save-btn" class="w-full h-14 rounded-xl btn-yellow flex items-center justify-center gap-2 mt-2">
+                            <i data-lucide="save" class="w-5 h-5"></i> СОХРАНИТЬ
+                        </button>
+                    </form>
+                </section>
+
+                <section class="space-y-4 flex flex-col w-full lg:w-[65%]">
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div class="glass p-4 sm:p-5 rounded-2xl text-center">
+                            <p class="text-[9px] sm:text-[10px] text-gray-400 uppercase font-bold mb-1">Всего подходов</p>
+                            <p id="stat-total" class="text-2xl sm:text-3xl font-black tracking-tight">0</p>
+                        </div>
+                        <div class="glass p-4 sm:p-5 rounded-2xl text-center border-b-2 border-brandYellow/20">
+                            <p class="text-[9px] sm:text-[10px] text-gray-400 uppercase font-bold mb-1">Рекорд</p>
+                            <p id="stat-max" class="text-2xl sm:text-3xl font-black text-brandYellow tracking-tight">0 кг</p>
+                        </div>
+                    </div>
+                    <div class="glass p-4 sm:p-5 rounded-3xl flex-1 flex flex-col min-h-[300px] sm:min-h-[400px]">
+                        <h4 id="current-exercise-label" class="text-[10px] text-brandYellow uppercase font-bold mb-4 tracking-widest text-center">Динамика прогресса</h4>
+                        <div class="flex-1 relative w-full overflow-hidden">
+                            <canvas id="progressChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1">
+                    <h3 class="text-xl sm:text-2xl font-black uppercase tracking-tighter">История</h3>
+                    <div class="relative w-full sm:w-64">
+                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"></i>
+                         <input type="text" id="search-input" placeholder="Поиск..." class="w-full bg-white/5 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm outline-none focus:border-brandYellow transition-colors">
+                    </div>
+                </div>
+                <div id="history-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- МОДАЛКА УДАЛЕНИЯ -->
+    <div id="delete-modal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div class="glass max-w-sm w-full p-6 rounded-3xl text-center">
+            <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="trash-2" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2 uppercase">Удалить запись?</h3>
+            <p class="text-sm text-gray-400 mb-6">Это действие нельзя будет отменить.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 font-bold transition-colors">ОТМЕНА</button>
+                <button id="confirm-delete-btn" class="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold transition-colors">УДАЛИТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] space-y-2 w-full max-w-xs px-4"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const SUPABASE_URL = "https://jiugfwnjcuoujkdxergp.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_Wmisl4cCcMxuCZ48E8ALag_1336yeS0";
+
+        let supabaseClient;
+        let workouts = [];
+        let currentUser = null;
+        let authMode = 'login'; 
+        let progressChart = null;
+        let workoutToDelete = null;
+
+        function switchAuthTab(mode) {
+            authMode = mode;
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${mode}`).classList.add('active');
+            document.getElementById('auth-submit-btn').textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('email-input').value;
+            const password = document.getElementById('password-input').value;
+            const btn = document.getElementById('auth-submit-btn');
+            btn.disabled = true;
+
+            try {
+                if (authMode === 'login') {
+                    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabaseClient.auth.signUp({ email, password });
+                    if (error) throw error;
+                    showToast("Успех! Теперь войдите.");
+                    switchAuthTab('login');
+                }
+            } catch (err) { showToast(err.message, "error"); }
+            btn.disabled = false;
+        }
+
+        window.addEventListener('load', async () => {
+            lucide.createIcons();
+            flatpickr("#date", { defaultDate: "today", dateFormat: "Y-m-d", locale: "ru", disableMobile: "true" });
+            
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (session?.user) {
+                    currentUser = session.user;
+                    showApp();
+                } else {
+                    currentUser = null;
+                    showLogin();
+                }
+            });
+            
+            initCustomSuggestions();
+            document.getElementById('confirm-delete-btn').addEventListener('click', confirmDeleteWorkout);
+        });
+
+        function showLogin() {
+            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('app-content').classList.add('hidden');
+        }
+
+        function showApp() {
+            document.getElementById('login-overlay').classList.add('hidden');
+            const content = document.getElementById('app-content');
+            content.classList.remove('hidden');
+            setTimeout(() => content.classList.add('opacity-100'), 50);
+            document.getElementById('display-client-id').textContent = currentUser.email;
+            fetchWorkouts();
+        }
+
+        async function fetchWorkouts() {
+            if (!currentUser) return;
+            const { data, error } = await supabaseClient
+                .from('workouts')
+                .select('*')
+                .eq('client_id', currentUser.id)
+                .order('date', { ascending: false });
+            
+            if (!error) {
+                workouts = data || [];
+                updateDashboard();
+                renderHistory(document.getElementById('search-input').value); 
+            }
+        }
+
+        async function handleSaveWorkout(e) {
+            e.preventDefault();
+            if (!currentUser) return showToast("Вы не вошли", "error");
+
+            const btn = document.getElementById('save-btn');
+            btn.disabled = true;
+
+            const payload = {
+                client_id: currentUser.id,
+                date: document.getElementById('date').value,
+                exercise: document.getElementById('exercise').value.trim().toUpperCase(),
+                result: parseFloat(document.getElementById('result').value),
+                comment: document.getElementById('comment').value.trim()
+            };
+
+            const { error } = await supabaseClient.from('workouts').insert([payload]);
+            if (!error) {
+                showToast("Сохранено!");
+                document.getElementById('exercise').value = '';
+                document.getElementById('result').value = '';
+                document.getElementById('comment').value = '';
+                fetchWorkouts();
+            } else {
+                showToast(`Ошибка сохранения`, "error");
+            }
+            btn.disabled = false;
+        }
+
+        // --- УДАЛЕНИЕ ---
+        function openDeleteModal(id) {
+            workoutToDelete = id;
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.getElementById('delete-modal').classList.add('flex');
+        }
+
+        function closeDeleteModal() {
+            workoutToDelete = null;
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.getElementById('delete-modal').classList.remove('flex');
+        }
+
+        async function confirmDeleteWorkout() {
+            if (!workoutToDelete || !currentUser) return;
+            
+            const btn = document.getElementById('confirm-delete-btn');
+            btn.disabled = true;
+            btn.textContent = "УДАЛЯЕМ...";
+
+            const { error } = await supabaseClient
+                .from('workouts')
+                .delete()
+                .eq('id', workoutToDelete)
+                .eq('client_id', currentUser.id);
+
+            if (!error) {
+                showToast("Запись удалена");
+                fetchWorkouts();
+                closeDeleteModal();
+            } else {
+                showToast("Ошибка при удалении", "error");
+            }
+            
+            btn.disabled = false;
+            btn.textContent = "УДАЛИТЬ";
+        }
+
+        function updateDashboard() {
+            document.getElementById('stat-total').textContent = workouts.length;
+            const max = workouts.length > 0 ? Math.max(...workouts.map(w => w.result)) : 0;
+            document.getElementById('stat-max').textContent = `${max} кг`;
+        }
+
+        function getColor(index) {
+            const hues = [45, 50, 40, 55, 35];
+            const hue = hues[index % hues.length];
+            return `hsl(${hue}, 100%, ${40 + (index * 10) % 30}%)`;
+        }
+
+        function renderChart(filteredWorkouts, searchTerm) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            if (progressChart) progressChart.destroy();
+            
+            const labelEl = document.getElementById('current-exercise-label');
+
+            if (!workouts.length) {
+                labelEl.textContent = "НЕТ ДАННЫХ ДЛЯ ГРАФИКА";
+                return;
+            }
+
+            let datasets = [];
+            let allDates = [...new Set(workouts.map(w => w.date))].sort();
+
+            const exerciseGroups = filteredWorkouts.reduce((acc, w) => {
+                if (!acc[w.exercise]) acc[w.exercise] = {};
+                if (!acc[w.exercise][w.date] || acc[w.exercise][w.date] < w.result) {
+                    acc[w.exercise][w.date] = w.result;
+                }
+                return acc;
+            }, {});
+
+            const exercises = Object.keys(exerciseGroups);
+            exercises.forEach((ex, idx) => {
+                const color = searchTerm ? '#FFD700' : getColor(idx);
+                const data = allDates.map(date => exerciseGroups[ex][date] || null);
+
+                datasets.push({
+                    label: ex,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: false,
+                    tension: 0.3,
+                    borderWidth: searchTerm ? 3 : 2,
+                    pointRadius: searchTerm ? 4 : 2,
+                    pointBackgroundColor: color,
+                    spanGaps: true
+                });
+            });
+
+            labelEl.textContent = searchTerm ? `ПРОГРЕСС: ${searchTerm}` : "ОБЩАЯ ДИНАМИКА";
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allDates.map(d => d.split('-').reverse().slice(0,2).join('.')),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            display: !searchTerm && exercises.length < 8,
+                            labels: { color: '#888', font: { size: 9, weight: 'bold' }, boxWidth: 8, padding: 10 }
+                        },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 9 } } },
+                        x: { grid: { display: false }, ticks: { color: '#666', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        function renderHistory(filter = "") {
+            const term = filter.trim().toUpperCase();
+            const filtered = term ? workouts.filter(w => w.exercise.includes(term)) : workouts;
+            
+            renderChart(filtered, term);
+
+            const container = document.getElementById('history-container');
+            if (!filtered.length) {
+                container.innerHTML = `<div class="col-span-full text-center py-20 opacity-30 text-xs tracking-widest uppercase">НИЧЕГО НЕ НАЙДЕНО</div>`;
+                return;
+            }
+
+            const groups = filtered.reduce((acc, w) => { (acc[w.date] = acc[w.date] || []).push(w); return acc; }, {});
+            container.innerHTML = Object.keys(groups).sort().reverse().map(date => `
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2 opacity-50 px-2"><span class="text-[9px] font-black tracking-widest">${date.split('-').reverse().join('.')}</span><div class="h-px flex-1 bg-white/10"></div></div>
+                    ${groups[date].map(w => `
+                        <div class="glass rounded-2xl p-4 hover:border-brandYellow/50 transition-all group relative flex flex-col justify-center min-h-[80px]">
+                            <div class="flex justify-between items-center gap-2 pr-8">
+                                <h4 class="font-bold text-sm uppercase tracking-tight truncate flex-1">${w.exercise}</h4>
+                                <span class="text-lg font-black text-brandYellow shrink-0">${w.result} <small class="text-[9px] opacity-50 uppercase font-bold">КГ</small></span>
+                            </div>
+                            ${w.comment ? `<p class="text-[10px] text-gray-500 mt-2 italic border-t border-white/5 pt-2 line-clamp-2 pr-8">${w.comment}</p>` : ''}
+                            
+                            <!-- Кнопка удаления -->
+                            <button onclick="openDeleteModal('${w.id}')" class="absolute top-1/2 -translate-y-1/2 right-3 text-white/20 hover:text-red-500 transition-colors p-2 flex items-center justify-center">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function showToast(msg, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl glass border-l-4 shadow-xl transition-all ${type === 'error' ? 'border-red-500' : 'border-brandYellow'}`;
+            toast.innerHTML = `<span class="text-xs font-bold uppercase">${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
+        }
+
+        function initCustomSuggestions() {
+            const input = document.getElementById('exercise');
+            const drop = document.getElementById('exercise-suggestions');
+            input.addEventListener('input', () => {
+                const val = input.value.toUpperCase();
+                const matches = [...new Set(workouts.map(w => w.exercise))].filter(ex => ex.includes(val));
+                if (val && matches.length) {
+                    drop.innerHTML = matches.slice(0, 5).map(m => `<div class="suggestion-item text-xs font-bold uppercase">${m}</div>`).join('');
+                    drop.style.display = 'block';
+                } else drop.style.display = 'none';
+            });
+            drop.addEventListener('click', (e) => {
+                if (e.target.classList.contains('suggestion-item')) {
+                    input.value = e.target.textContent;
+                    drop.style.display = 'none';
+                    renderHistory(input.value); 
+                }
+            });
+            document.addEventListener('click', (e) => { if (!input.contains(e.target)) drop.style.display = 'none'; });
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', handleAuth);
+        document.getElementById('workout-form').addEventListener('submit', handleSaveWorkout);
+        document.getElementById('search-input').addEventListener('input', (e) => renderHistory(e.target.value));
+        document.getElementById('logout-btn').addEventListener('click', () => { supabaseClient.auth.signOut(); location.reload(); });
+    </script>
+</body>
+</html>
